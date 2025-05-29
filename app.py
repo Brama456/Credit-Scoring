@@ -42,13 +42,12 @@ def train_and_evaluate(X, y):
     print("\n📊 Classification Report:\n", report)
     print("\n🧩 Confusion Matrix:\n", cm)
 
-    # Save model only
+    # Save model & encoder
     joblib.dump(model, 'xgb_credit_model.pkl')
-
     return model, X_train.values, y_train.values
 
 # ---------------- STEP 3: Streamlit interface ----------------
-def run_streamlit_app(model, le, feature_columns, X_train_np, y_train_np):
+def run_streamlit_app(model, le, feature_columns, X_train_np):
     st.title("💳 Credit Rating Predictor")
 
     st.write("### Enter the details below:")
@@ -60,10 +59,10 @@ def run_streamlit_app(model, le, feature_columns, X_train_np, y_train_np):
     if st.button("Predict Credit Rating"):
         input_df = pd.DataFrame([user_input])
 
-        # Convert to numeric (in case user types strings)
+        # Convert to numeric
         input_df = input_df.apply(pd.to_numeric, errors='coerce').fillna(0)
 
-        # One-hot encode & align with training columns
+        # One-hot encode & align
         input_df = pd.get_dummies(input_df)
         input_df = input_df.reindex(columns=feature_columns, fill_value=0)
 
@@ -93,26 +92,25 @@ def run_streamlit_app(model, le, feature_columns, X_train_np, y_train_np):
 
 # ---------------- MAIN ----------------
 def main():
-    excel_file = r"C:\Users\Bramarambika\Downloads\Credit Scoring\Credit score dataset.xlsx"
+    excel_file = 'Credit score dataset.xlsx'
 
-    if (not os.path.exists('xgb_credit_model.pkl')) or (not os.path.exists('label_encoder.pkl')):
-        st.write("🔨 Training model...")
-        X, y, le = load_and_preprocess_data(excel_file)
-        model, X_train_np, y_train_np = train_and_evaluate(X, y)
-        joblib.dump(le, 'label_encoder.pkl')  # Save encoder here after training
-    else:
+    if os.path.exists('xgb_credit_model.pkl') and os.path.exists('label_encoder.pkl'):
         st.write("✅ Loading saved model...")
         model = joblib.load('xgb_credit_model.pkl')
         le = joblib.load('label_encoder.pkl')
+
+        # Load data just to get feature columns
         X, y, _ = load_and_preprocess_data(excel_file)
-        # For LIME explainer we need numpy arrays of training data, 
-        # So we do a train_test_split here to get X_train again
-        from sklearn.model_selection import train_test_split
-        X_train_np, _, y_train_np, _ = train_test_split(
+        X_train_np, _, _, _ = train_test_split(
             X.values, y.values, test_size=0.2, random_state=42
         )
+    else:
+        st.write("🔨 Training model...")
+        X, y, le = load_and_preprocess_data(excel_file)
+        model, X_train_np, _ = train_and_evaluate(X, y)
+        joblib.dump(le, 'label_encoder.pkl')
 
-    run_streamlit_app(model, le, X.columns, X_train_np, y_train_np)
+    run_streamlit_app(model, le, X.columns, X_train_np)
 
 if __name__ == "__main__":
     main()
